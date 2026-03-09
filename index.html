@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Detektif Bahasa: Ahli Keluarga</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+
+        :root {
+            --detective-dark: #121212;
+            --detective-accent: #d4af37;
+            --detective-paper: #f4ecd8;
+        }
+
+        body {
+            font-family: 'Special Elite', cursive;
+            background-color: var(--detective-dark);
+            color: #eee;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .paper {
+            background-color: var(--detective-paper);
+            color: #222;
+            border: 2px solid #8b4513;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.3);
+        }
+
+        .detective-btn {
+            background: #2a2a2a;
+            color: var(--detective-accent);
+            border: 1px solid var(--detective-accent);
+            transition: all 0.2s ease;
+        }
+
+        .detective-btn.active {
+            background: var(--detective-accent);
+            color: #000;
+        }
+
+        /* Word Search Grid */
+        #wordsearch-container {
+            display: grid;
+            gap: 3px;
+            background: #333;
+            padding: 6px;
+            border: 4px solid #444;
+            user-select: none;
+            touch-action: none;
+            border-radius: 8px;
+        }
+
+        .grid-cell {
+            aspect-ratio: 1/1;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .grid-cell.selected {
+            background: #d4af37 !important;
+            color: white !important;
+            transform: scale(0.95);
+        }
+
+        .grid-cell.found {
+            background: #4caf50 !important;
+            color: white !important;
+        }
+
+        .tab-content {
+            height: calc(100vh - 160px);
+            overflow-y: auto;
+        }
+
+        .hidden { display: none; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+    </style>
+</head>
+<body>
+
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#1a1a1a]">
+        <h1 class="text-4xl text-[#d4af37] mb-8 text-center tracking-tighter uppercase">Misi Detektif:<br>Ahli Keluarga</h1>
+        
+        <div class="paper p-6 rounded w-full max-w-md">
+            <div class="flex justify-end mb-4 space-x-2">
+                <button onclick="changeLang('bm')" class="text-xs px-2 py-1 border border-black rounded hover:bg-black hover:text-white">BM</button>
+                <button onclick="changeLang('bi')" class="text-xs px-2 py-1 border border-black rounded hover:bg-black hover:text-white">EN</button>
+            </div>
+
+            <label class="block font-bold mb-2" id="ui-name">Nama Ejen:</label>
+            <input type="text" id="input-name" class="w-full p-2 mb-6 border-b-2 border-black bg-transparent outline-none text-xl" placeholder="...">
+
+            <label class="block font-bold mb-2" id="ui-avatar">Kod Karakter:</label>
+            <div class="flex justify-around mb-8 bg-black/5 p-4 rounded">
+                <span onclick="pickAvatar('🕵️‍♂️', this)" class="avatar-opt text-4xl cursor-pointer p-2 border-2 border-black rounded-lg">🕵️‍♂️</span>
+                <span onclick="pickAvatar('🕵️‍♀️', this)" class="avatar-opt text-4xl cursor-pointer p-2 border-2 border-transparent rounded-lg">🕵️‍♀️</span>
+                <span onclick="pickAvatar('🕶️', this)" class="avatar-opt text-4xl cursor-pointer p-2 border-2 border-transparent rounded-lg">🕶️</span>
+            </div>
+
+            <div class="flex flex-col space-y-3">
+                <button onclick="initApp()" class="detective-btn py-4 rounded-lg font-bold text-lg" id="ui-start">MULAKAN MISI</button>
+                <button onclick="initApp()" class="text-sm text-gray-500 underline text-center" id="ui-skip">Langkau Profil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main UI -->
+    <div id="app-ui" class="hidden flex flex-col h-screen">
+        <header class="bg-black p-4 flex justify-between items-center border-b border-[#d4af37]">
+            <div class="flex items-center space-x-3">
+                <div id="display-avatar" class="text-3xl">🕵️‍♂️</div>
+                <div>
+                    <div id="display-name" class="font-bold text-[#d4af37]">Ejen</div>
+                    <div class="text-[10px] text-gray-500 uppercase tracking-widest" id="ui-rank">Ejen Utama</div>
+                </div>
+            </div>
+            <button onclick="toggleMusic()" id="music-btn" class="w-10 h-10 border border-[#d4af37] rounded-full flex items-center justify-center">🎵</button>
+        </header>
+
+        <div class="flex bg-black p-1 border-b border-[#333]">
+            <button onclick="switchTab('learning')" id="tab-btn-learning" class="tab-btn flex-1 py-3 text-xs font-bold detective-btn active">BELAJAR</button>
+            <button onclick="switchTab('revision')" id="tab-btn-revision" class="tab-btn flex-1 py-3 text-xs font-bold detective-btn">ULANGKAJI</button>
+            <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn flex-1 py-3 text-xs font-bold detective-btn">PERMAINAN</button>
+        </div>
+
+        <main class="flex-1 bg-[#1a1a1a] p-4 overflow-hidden relative">
+            <!-- Learning -->
+            <div id="tab-learning" class="tab-content">
+                <h2 class="text-[#d4af37] text-center mb-4 text-xs italic" id="ui-learn-title">Ketik kad untuk mendengar rahsia sebutan</h2>
+                <div class="grid grid-cols-2 gap-3" id="learning-list"></div>
+            </div>
+
+            <!-- Revision -->
+            <div id="tab-revision" class="tab-content hidden flex flex-col items-center justify-center">
+                <div class="paper p-6 w-full max-w-sm rounded-lg text-center">
+                    <div class="flex justify-between items-center mb-4">
+                        <span id="rev-progress" class="text-[10px] font-bold bg-black text-white px-2 py-1 rounded">1/12</span>
+                        <button onclick="togglePinyin()" id="pinyin-toggle-btn" class="text-[10px] border border-black px-2 py-1 rounded font-bold uppercase">Bantuan: Tutup</button>
+                    </div>
+                    <div id="rev-word" class="text-2xl font-bold mb-6 italic underline decoration-wavy">...</div>
+                    <div class="grid grid-cols-2 gap-3" id="rev-options"></div>
+                    <div id="rev-feedback" class="h-6 mt-4 font-bold text-sm"></div>
+                </div>
+            </div>
+
+            <!-- Game -->
+            <div id="tab-game" class="tab-content hidden flex flex-col items-center">
+                <div class="text-center mb-4 bg-black/40 p-3 rounded-lg border border-[#d4af37]/30 w-full max-w-xs">
+                    <p class="text-[10px] text-[#d4af37] uppercase tracking-widest mb-1" id="ui-game-hint">Cari Hanzi untuk klu ini:</p>
+                    <div id="game-target-pinyin" class="text-2xl font-bold text-white tracking-tighter">bàba</div>
+                    <div id="game-target-meaning" class="text-xs text-gray-400 mt-1 italic">...</div>
+                </div>
+                
+                <div id="wordsearch-container" class="w-full max-w-sm"></div>
+                
+                <p class="mt-4 text-[10px] text-gray-500 text-center animate-pulse" id="ui-drag-hint">Seret jari/tetikus pada grid untuk memilih</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification -->
+    <div id="toast" class="fixed top-10 left-1/2 -translate-x-1/2 bg-[#d4af37] text-black px-6 py-2 rounded shadow-2xl font-bold opacity-0 transition-all pointer-events-none z-[100] scale-90"></div>
+
+    <script>
+        const familyData = [
+            { hz: '爸爸', py: 'bàba', bm: 'Bapa', bi: 'Father' },
+            { hz: '妈妈', py: 'māma', bm: 'Ibu', bi: 'Mother' },
+            { hz: '哥哥', py: 'gēge', bm: 'Abang', bi: 'Older Brother' },
+            { hz: '姐姐', py: 'jiějie', bm: 'Kakak', bi: 'Older Sister' },
+            { hz: '弟弟', py: 'dìdi', bm: 'Adik Lelaki', bi: 'Younger Brother' },
+            { hz: '妹妹', py: 'mèimei', bm: 'Adik Perempuan', bi: 'Younger Sister' },
+            { hz: '奶奶', py: 'nǎinai', bm: 'Nenek (Bapa)', bi: 'Grandmother' },
+            { hz: '外公', py: 'wàigōng', bm: 'Datuk (Ibu)', bi: 'Grandfather' },
+            { hz: '外婆', py: 'wàipó', bm: 'Nenek (Ibu)', bi: 'Grandmother' },
+            { hz: '叔叔', py: 'shūshu', bm: 'Pakcik', bi: 'Uncle' },
+            { hz: '姑姑', py: 'gūgu', bm: 'Makcik', bi: 'Aunt' },
+            { hz: '大伯', py: 'dàbó', bm: 'Pakcik (Tua)', bi: 'Eldest Uncle' }
+        ];
+
+        let state = {
+            lang: 'bm',
+            avatar: '🕵️‍♂️',
+            name: 'Ejen',
+            showPinyin: false,
+            revIndex: 0,
+            gameIndex: 0,
+            isMusic: false,
+            audioCtx: null,
+            isDragging: false,
+            selectedIndices: []
+        };
+
+        const text = {
+            bm: {
+                uiName: "Nama Ejen:", uiAvatar: "Kod Karakter:", uiStart: "MULAKAN MISI", uiSkip: "Langkau Profil",
+                uiRank: "Ejen Utama", tabLearn: "BELAJAR", tabReview: "ULANGKAJI", tabPlay: "PERMAINAN",
+                uiLearnTitle: "Ketik kad untuk mendengar rahsia sebutan", uiGameHint: "Cari Hanzi untuk klu ini:",
+                uiDragHint: "Seret jari/tetikus pada grid untuk memilih", correct: "BAGUS, EJEN!", wrong: "CUBA LAGI!",
+                pinyinOn: "Bantuan: Aktif", pinyinOff: "Bantuan: Tutup"
+            },
+            bi: {
+                uiName: "Agent Name:", uiAvatar: "Character Code:", uiStart: "START MISSION", uiSkip: "Skip Profile",
+                uiRank: "Senior Agent", tabLearn: "LEARN", tabReview: "REVISION", tabPlay: "GAME",
+                uiLearnTitle: "Tap cards to hear the secret pronunciation", uiGameHint: "Find Hanzi for this clue:",
+                uiDragHint: "Drag your finger/mouse on grid to select", correct: "WELL DONE, AGENT!", wrong: "TRY AGAIN!",
+                pinyinOn: "Help: On", pinyinOff: "Help: Off"
+            }
+        };
+
+        function changeLang(l) {
+            state.lang = l;
+            const t = text[l];
+            document.getElementById('ui-name').innerText = t.uiName;
+            document.getElementById('ui-avatar').innerText = t.uiAvatar;
+            document.getElementById('ui-start').innerText = t.uiStart;
+            document.getElementById('ui-skip').innerText = t.uiSkip;
+            document.getElementById('ui-rank').innerText = t.uiRank;
+            document.getElementById('tab-btn-learning').innerText = t.tabLearn;
+            document.getElementById('tab-btn-revision').innerText = t.tabReview;
+            document.getElementById('tab-btn-game').innerText = t.tabPlay;
+            document.getElementById('ui-learn-title').innerText = t.uiLearnTitle;
+            document.getElementById('ui-game-hint').innerText = t.uiGameHint;
+            document.getElementById('ui-drag-hint').innerText = t.uiDragHint;
+            updatePinyinBtn();
+        }
+
+        function pickAvatar(a, el) {
+            state.avatar = a;
+            document.querySelectorAll('.avatar-opt').forEach(o => o.style.borderColor = 'transparent');
+            el.style.borderColor = 'black';
+        }
+
+        function initApp() {
+            state.name = document.getElementById('input-name').value || (state.lang === 'bm' ? 'Ejen' : 'Agent');
+            document.getElementById('display-name').innerText = state.name;
+            document.getElementById('display-avatar').innerText = state.avatar;
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('app-ui').classList.remove('hidden');
+            renderLearning();
+            renderRevision();
+            initGame();
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + t).classList.remove('hidden');
+            document.getElementById('tab-btn-' + t).classList.add('active');
+            if(t === 'game') initGame();
+        }
+
+        // --- Learning ---
+        function renderLearning() {
+            const list = document.getElementById('learning-list');
+            list.innerHTML = '';
+            familyData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "paper p-3 rounded text-center cursor-pointer active:scale-95 transition-all";
+                card.onclick = () => speak(item.hz);
+                card.innerHTML = `<div class="text-3xl">${item.hz}</div><div class="text-xs text-red-600 font-bold">${item.py}</div><div class="text-[10px] mt-1 text-gray-500 uppercase">${state.lang === 'bm' ? item.bm : item.bi}</div>`;
+                list.appendChild(card);
+            });
+        }
+
+        function speak(t) {
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'zh-CN';
+            speechSynthesis.speak(u);
+        }
+
+        // --- Revision ---
+        function togglePinyin() {
+            state.showPinyin = !state.showPinyin;
+            updatePinyinBtn();
+            renderRevision();
+        }
+
+        function updatePinyinBtn() {
+            const btn = document.getElementById('pinyin-toggle-btn');
+            btn.innerText = state.showPinyin ? text[state.lang].pinyinOn : text[state.lang].pinyinOff;
+            btn.style.background = state.showPinyin ? '#d4af37' : 'white';
+        }
+
+        function renderRevision() {
+            const item = familyData[state.revIndex];
+            document.getElementById('rev-progress').innerText = `${state.revIndex + 1}/${familyData.length}`;
+            document.getElementById('rev-word').innerText = state.lang === 'bm' ? item.bm : item.bi;
+            
+            let pool = [...familyData].sort(() => 0.5 - Math.random()).slice(0, 4);
+            if (!pool.find(p => p.hz === item.hz)) pool[0] = item;
+            pool.sort(() => 0.5 - Math.random());
+
+            const options = document.getElementById('rev-options');
+            options.innerHTML = '';
+            pool.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "paper p-3 text-2xl flex flex-col items-center justify-center rounded hover:bg-yellow-100 active:scale-95";
+                btn.innerHTML = `<span>${opt.hz}</span><span class="text-[10px] text-red-600 font-bold ${state.showPinyin ? '' : 'hidden'}">${opt.py}</span>`;
+                btn.onclick = () => {
+                    if(opt.hz === item.hz) {
+                        toast(text[state.lang].correct);
+                        state.revIndex = (state.revIndex + 1) % familyData.length;
+                        renderRevision();
+                    } else {
+                        toast(text[state.lang].wrong);
+                    }
+                };
+                options.appendChild(btn);
+            });
+        }
+
+        // --- Game (Wordsearch) ---
+        const GRID_SIZE = 8;
+        let gameGrid = [];
+
+        function initGame() {
+            const target = familyData[state.gameIndex];
+            document.getElementById('game-target-pinyin').innerText = target.py;
+            document.getElementById('game-target-meaning').innerText = `(${state.lang === 'bm' ? target.bm : target.bi})`;
+            
+            gameGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));
+            const isH = Math.random() > 0.5;
+            let r = Math.floor(Math.random() * (isH ? GRID_SIZE : GRID_SIZE - 1));
+            let c = Math.floor(Math.random() * (isH ? GRID_SIZE - 1 : GRID_SIZE));
+            
+            for(let i=0; i<target.hz.length; i++) {
+                gameGrid[r + (isH ? 0 : i)][c + (isH ? i : 0)] = target.hz[i];
+            }
+
+            const chars = "家父母人兄第姐妹公婆叔姑伯大小口口";
+            for(let i=0; i<GRID_SIZE; i++) {
+                for(let j=0; j<GRID_SIZE; j++) {
+                    if(!gameGrid[i][j]) gameGrid[i][j] = chars[Math.floor(Math.random() * chars.length)];
+                }
+            }
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('wordsearch-container');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+            
+            for(let r=0; r<GRID_SIZE; r++) {
+                for(let c=0; c<GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.innerText = gameGrid[r][c];
+                    cell.dataset.idx = r * GRID_SIZE + c;
+                    
+                    cell.onmousedown = (e) => onStart(r, c, cell);
+                    cell.onmouseover = (e) => onMove(r, c, cell);
+                    cell.ontouchstart = (e) => { e.preventDefault(); onStart(r, c, cell); };
+                    container.appendChild(cell);
+                }
+            }
+            window.onmouseup = onEnd;
+            window.ontouchend = onEnd;
+            container.ontouchmove = (e) => {
+                e.preventDefault();
+                const t = e.touches[0];
+                const el = document.elementFromPoint(t.clientX, t.clientY);
+                if(el && el.classList.contains('grid-cell')) {
+                    const idx = parseInt(el.dataset.idx);
+                    onMove(Math.floor(idx/GRID_SIZE), idx%GRID_SIZE, el);
+                }
+            };
+        }
+
+        function onStart(r, c, el) {
+            state.isDragging = true;
+            state.selectedIndices = [r * GRID_SIZE + c];
+            el.classList.add('selected');
+        }
+
+        function onMove(r, c, el) {
+            if(!state.isDragging) return;
+            const idx = r * GRID_SIZE + c;
+            if(!state.selectedIndices.includes(idx)) {
+                state.selectedIndices.push(idx);
+                el.classList.add('selected');
+            }
+        }
+
+        function onEnd() {
+            if(!state.isDragging) return;
+            state.isDragging = false;
+            const word = state.selectedIndices.map(idx => {
+                const r = Math.floor(idx/GRID_SIZE), c = idx%GRID_SIZE;
+                return gameGrid[r][c];
+            }).join('');
+
+            if(word === familyData[state.gameIndex].hz) {
+                toast(text[state.lang].correct);
+                document.querySelectorAll('.grid-cell').forEach((el, i) => {
+                    if(state.selectedIndices.includes(i)) {
+                        el.classList.remove('selected');
+                        el.classList.add('found');
+                    }
+                });
+                setTimeout(() => {
+                    state.gameIndex = (state.gameIndex + 1) % familyData.length;
+                    initGame();
+                }, 800);
+            } else {
+                document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('selected'));
+            }
+            state.selectedIndices = [];
+        }
+
+        function toast(m) {
+            const t = document.getElementById('toast');
+            t.innerText = m;
+            t.style.opacity = '1';
+            t.style.transform = 'translate(-50%, 0) scale(1)';
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transform = 'translate(-50%, 0) scale(0.9)';
+            }, 1500);
+        }
+
+        function toggleMusic() {
+            if(!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            state.isMusic = !state.isMusic;
+            document.getElementById('music-btn').innerText = state.isMusic ? '⏸️' : '🎵';
+            if(state.isMusic) { state.audioCtx.resume(); playMuzik(); }
+            else state.audioCtx.suspend();
+        }
+
+        function playMuzik() {
+            if(!state.isMusic) return;
+            const n = [138, 146, 155, 164, 138, 146, 155, 164, 207, 196, 164, 146, 164];
+            let t = state.audioCtx.currentTime;
+            n.forEach(f => {
+                const o = state.audioCtx.createOscillator(), g = state.audioCtx.createGain();
+                o.frequency.value = f; g.gain.setValueAtTime(0.02, t);
+                g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                o.connect(g).connect(state.audioCtx.destination);
+                o.start(t); o.stop(t + 0.5); t += 0.3;
+            });
+            setTimeout(() => { if(state.isMusic) playMuzik(); }, 5000);
+        }
+
+        changeLang('bm');
+    </script>
+</body>
+</html>
+
